@@ -22,6 +22,7 @@ import net.horizonsend.ion.server.features.multiblock.type.drills.DrillMultibloc
 import net.horizonsend.ion.server.features.multiblock.type.drills.DrillMultiblockTier3
 import net.horizonsend.ion.server.features.multiblock.type.drills.DrillMultiblockTier3Mirrored
 import net.horizonsend.ion.server.features.multiblock.type.economy.BazaarTerminalMultiblock
+import net.horizonsend.ion.server.features.multiblock.type.inventorymanager.InventoryManagerMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.economy.RemoteSellerMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.farming.harvester.HarvesterMultiblockTier1
 import net.horizonsend.ion.server.features.multiblock.type.farming.harvester.HarvesterMultiblockTier2
@@ -485,6 +486,7 @@ object MultiblockRegistration : IonServerComponent() {
 		registerMultiblock(ShieldMultiblockClass85)
 		registerMultiblock(ShieldMultiblockClass08i)
 		registerMultiblock(BoxShieldMultiblock)
+		registerMultiblock(InventoryManagerMultiblock)
 		registerMultiblock(BubbleShieldMultiblock)
 		registerMultiblock(EventShieldMultiblock)
 

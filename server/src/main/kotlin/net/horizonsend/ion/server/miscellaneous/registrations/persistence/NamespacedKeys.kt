@@ -138,6 +138,11 @@ object NamespacedKeys {
 	val BLUEPRINT_NAME = key("blueprint_name")
 	val BLUEPRINT_ID = key("blueprint_id")
 
+	val INVENTORY_MANAGER_ITEM = key("inventory_manager_item")
+	val INVENTORY_MANAGER_REMAINING = key("inventory_manager_remaining")
+	val INVENTORY_MANAGER_TOTAL = key("inventory_manager_total")
+	val INVENTORY_MANAGER_REQUESTER = key("inventory_manager_requester")
+
 	val FIRST_POINT = key("first_point")
 	val SECOND_POINT = key("second_point")
 
