@@ -36,14 +36,14 @@ object StarshipDestruction {
 		if (urgent) {
 			return Tasks.syncBlocking {
 				DeactivatedPlayerStarships.deactivateNow(starship = starship, ephemeral = ephemeral)
-				DeactivatedPlayerStarships.destroy(starship.data)
+				DeactivatedPlayerStarships.destroy(starship.data, removeFromCache = !ephemeral)
 
 				vanishShip(starship, successConsumer)
 			}
 		}
 
 		DeactivatedPlayerStarships.deactivateAsync(starship = starship, ephemeral = ephemeral) {
-			DeactivatedPlayerStarships.destroyAsync(starship.data) {
+			DeactivatedPlayerStarships.destroyAsync(starship.data, removeFromCache = !ephemeral) {
 				vanishShip(starship, successConsumer)
 			}
 		}

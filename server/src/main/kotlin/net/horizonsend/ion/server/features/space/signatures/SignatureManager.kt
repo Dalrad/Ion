@@ -14,6 +14,7 @@ import net.horizonsend.ion.server.configuration.ConfigurationFiles
 import net.horizonsend.ion.server.core.IonServerComponent
 import net.horizonsend.ion.server.core.registration.IonRegistries
 import net.horizonsend.ion.server.features.misc.CapturableStationCache
+import net.horizonsend.ion.server.features.multiblock.type.misc.AIDefender
 import net.horizonsend.ion.server.features.nations.NATIONS_BALANCE
 import net.horizonsend.ion.server.features.space.spacestations.SpaceStationCache
 import net.horizonsend.ion.server.features.starship.hyperspace.MassShadows
@@ -134,29 +135,35 @@ object SignatureManager : IonServerComponent(true) {
 			// Do not spawn in hyperspace worlds
 			if (randomSpaceWorld.hasFlag(WorldFlag.HYPERSPACE_WORLD)) continue
 
+			// Do not spawn signatures within AI defender range
+			if (AIDefender.isNearActiveDefender(randomSpaceWorld, potentialX, potentialZ)) continue
+
             val stationsInWorld = SpaceStationCache.all().filter { station -> station.world == randomSpaceWorld.name }
-            for (station in stationsInWorld) {
-                if (distanceSquared(
-                        station.x.toDouble(),
-                        (randomSpaceWorld.maxHeight - randomSpaceWorld.minHeight).toDouble() / 2,
-                        station.z.toDouble(),
-                        potentialX,
-                        potentialY,
-                        potentialZ) <= (station.radius + MIN_DISTANCE_FROM_STATIONS).toDouble().pow(2)
-                    ) continue
+            
+			val insideSpaceStationBuffer = stationsInWorld.any { station ->
+                distanceSquared(
+                    station.x.toDouble(),
+                    (randomSpaceWorld.maxHeight - randomSpaceWorld.minHeight).toDouble() / 2,
+                    station.z.toDouble(),
+                    potentialX,
+                    potentialY,
+                    potentialZ
+                ) <= (station.radius + MIN_DISTANCE_FROM_STATIONS).toDouble().pow(2)
             }
+            if (insideSpaceStationBuffer) continue
 
             val capturableStationsInWorld = CapturableStationCache.stations.filter { station -> station.loc.world.name == randomSpaceWorld.name }
-            for (capturableStation in capturableStationsInWorld) {
-                if (distanceSquared(
-                        capturableStation.loc.x,
-                        (randomSpaceWorld.maxHeight - randomSpaceWorld.minHeight).toDouble() / 2,
-                        capturableStation.loc.z,
-                        potentialX,
-                        potentialY,
-                        potentialZ) <= (NATIONS_BALANCE.capturableStation.radius + MIN_DISTANCE_FROM_STATIONS).toDouble().pow(2)
-                ) continue
+            val insideCapturableStationBuffer = capturableStationsInWorld.any { station ->
+                distanceSquared(
+                    station.loc.x,
+                    (randomSpaceWorld.maxHeight - randomSpaceWorld.minHeight).toDouble() / 2,
+                    station.loc.z,
+                    potentialX,
+                    potentialY,
+                    potentialZ
+                ) <= (NATIONS_BALANCE.capturableStation.radius + MIN_DISTANCE_FROM_STATIONS).toDouble().pow(2)
             }
+            if (insideCapturableStationBuffer) continue
 
 			// only spawn away from inhabited chunks (this might need to be increased later on)
 			if (randomSpaceWorld.getChunkAt(potentialX.toInt(), potentialZ.toInt()).inhabitedTime >= Duration.ofHours(1).toSeconds() * 20) continue

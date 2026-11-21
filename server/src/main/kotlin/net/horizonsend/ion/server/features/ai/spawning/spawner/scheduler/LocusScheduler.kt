@@ -14,6 +14,7 @@ import net.horizonsend.ion.server.features.ai.spawning.AISpawningManager
 import net.horizonsend.ion.server.features.ai.spawning.spawner.AISpawner
 import net.horizonsend.ion.server.features.ai.spawning.spawner.PersistentDataSpawnerComponent
 import net.horizonsend.ion.server.features.ai.spawning.spawner.scheduler.LocusScheduler.LocusPersistentData
+import net.horizonsend.ion.server.features.multiblock.type.misc.AIDefender
 import net.horizonsend.ion.server.features.nations.NationsMap.dynmapLoaded
 import net.horizonsend.ion.server.features.space.Space
 import net.horizonsend.ion.server.features.starship.active.ActiveStarships
@@ -65,6 +66,7 @@ class LocusScheduler(
 
 	private lateinit var spawner: AISpawner
 	val MAX_TICK_MULTIPLIER = 4
+	private val MAX_CENTER_ATTEMPTS = 25
 	val ANNOUCE_WORLD = Duration.ofMinutes(30)
 	val ANNOUCE_DIFFICULTY = Duration.ofMinutes(15)
 
@@ -130,7 +132,10 @@ class LocusScheduler(
 		active = true
 		markDynmapZone()
 		addGravityWell()
-		if (center == null) center = calculateNewCenter() ?: return end()
+		val existingCenter = center
+		if (existingCenter == null || isBlockedByAIDefender(existingCenter)) {
+			center = calculateNewCenter() ?: return end()
+		}
 
 		if (difficulty == null) difficulty = difficultySupplier(center!!.world).get()
 
@@ -172,6 +177,12 @@ class LocusScheduler(
 		val interval = System.currentTimeMillis() - spawnerLastExecuted
 		if (interval < lastSpawnSeparation.toMillis()) return
 
+		val locusCenter = center ?: return end()
+		if (isBlockedByAIDefender(locusCenter)) {
+			end()
+			return
+		}
+
 		spawnerLastExecuted = System.currentTimeMillis()
 		val multiplier = (MAX_TICK_MULTIPLIER - sqrt(numberOccupied().toDouble())).coerceAtLeast(1.0)
 		lastSpawnSeparation = spawnSeparation.get().multipliedBy(multiplier.toLong())
@@ -180,37 +191,51 @@ class LocusScheduler(
 
 	private fun calculateNewCenter(): Location? {
 		// If you make a world with nothing but a planet in a tiny world border this will crash your server, but that is on you
-		val world = worlds.randomOrNull() ?: return null
+		for (world in worlds.shuffled()) {
+			val border = world.worldBorder
 
-		val border = world.worldBorder
+			val planets = Space.getAllPlanets()
+				.filter { it.spaceWorld?.uid == world.uid }
+				.plus(Space.getStars().filter { it.spaceWorld?.uid == world.uid })
 
-		val planets = Space.getAllPlanets()
-			.filter { it.spaceWorld?.uid == world.uid }
-			.plus(Space.getStars().filter { it.spaceWorld?.uid == world.uid })
+			val borderRadius = border.size / 2.0
+			val minX = border.center.x - borderRadius + radius
+			val maxX = border.center.x + borderRadius - radius
+			val minZ = border.center.z - borderRadius + radius
+			val maxZ = border.center.z + borderRadius - radius
 
-		val borderRadius = border.size / 2.0
-		val minX = border.center.x - borderRadius + radius
-		val maxX = border.center.x + borderRadius - radius
-		val minZ = border.center.z - borderRadius + radius
-		val maxZ = border.center.z + borderRadius - radius
+			// prevents crashes; perhaps the radius is too small for the world it is trying to spawn in
+			if (minX >= maxX || minZ >= maxZ) {
+				val fallback = Location(world, border.center.x, LOCUS_Y, border.center.z)
+				if (!isBlockedByAIDefender(fallback)) return fallback
+				continue
+			}
 
-		// prevents crashes; perhaps the radius is too small for the world it is trying to spawn in
-		if (minX >= maxX || minZ >= maxZ) return Location(world, border.center.x, LOCUS_Y, border.center.z)
+			var newLoc: Location? = null
+			var planetCheckAttempts = 0
+			var attempts = 0
+			while (newLoc == null && attempts < MAX_CENTER_ATTEMPTS) {
+				attempts++
+				val newX = Random.nextDouble(minX, maxX)
+				val newZ = Random.nextDouble(minZ, maxZ)
 
-		var newLoc: Location? = null
+				planetCheckAttempts += 1
+				if (planetCheckAttempts <= 10 && planets.any { it.location.distance(Vec3i(newX.toInt(), it.location.y, newZ.toInt())) < 1000.0 }) continue
 
-		var planetCheckAttempts = 0
-		while (newLoc == null) {
-			val newX = Random.nextDouble(minX, maxX)
-			val newZ = Random.nextDouble(minZ, maxZ)
+				val candidate = Location(world, newX, LOCUS_Y, newZ)
+				if (isBlockedByAIDefender(candidate)) continue
 
-			planetCheckAttempts += 1
-			if (planetCheckAttempts <= 10 && planets.any { it.location.distance(Vec3i(newX.toInt(), it.location.y, newZ.toInt())) < 1000.0 }) continue
+				newLoc = candidate
+			}
 
-			newLoc = Location(world, newX, LOCUS_Y, newZ)
+			if (newLoc != null) return newLoc
 		}
 
-		return newLoc
+		return null
+	}
+
+	private fun isBlockedByAIDefender(location: Location): Boolean {
+		return AIDefender.isNearActiveDefender(location.world, location.x, location.z, extraRadius = radius)
 	}
 
 	private fun markDynmapZone() {

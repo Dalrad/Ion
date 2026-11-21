@@ -376,9 +376,13 @@ object DeactivatedPlayerStarships : IonServerComponent() {
 		}
 	}
 
-	fun destroyAsync(data: StarshipData, callback: () -> Unit = {}): Unit = Tasks.async {
+	fun destroyAsync(
+		data: StarshipData,
+		removeFromCache: Boolean = true,
+		callback: () -> Unit = {}
+	): Unit = Tasks.async {
 		synchronized(lock) {
-			destroy(data)
+			destroy(data, removeFromCache)
 
 			Tasks.sync(callback)
 		}
@@ -394,12 +398,11 @@ object DeactivatedPlayerStarships : IonServerComponent() {
 		}
 	}
 
-	fun destroy(data: StarshipData) {
+	fun destroy(data: StarshipData, removeFromCache: Boolean = true) {
 		require(ActiveStarships[data._id] == null) { "Can't delete an active starship, but tried deleting ${data._id}" }
 
 		val world: World = data.bukkitWorld()
-		val cache: DeactivatedShipWorldCache = getCache(world)
-		cache.remove(data)
+		if (removeFromCache) getCache(world).remove(data)
 		getSaveFile(world, data).delete()
 
 		@Suppress("DEPRECATION") val x = blockKeyX(data.blockKey)

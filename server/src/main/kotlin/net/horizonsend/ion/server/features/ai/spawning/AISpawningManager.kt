@@ -11,6 +11,7 @@ import net.horizonsend.ion.server.configuration.ConfigurationFiles
 import net.horizonsend.ion.server.core.IonServerComponent
 import net.horizonsend.ion.server.features.ai.module.misc.DespawnModule
 import net.horizonsend.ion.server.features.ai.spawning.spawner.AISpawners
+import net.horizonsend.ion.server.features.multiblock.type.misc.AIDefender
 import net.horizonsend.ion.server.features.starship.active.ActiveControlledStarship
 import net.horizonsend.ion.server.features.starship.active.ActiveStarship
 import net.horizonsend.ion.server.features.starship.active.ActiveStarships
@@ -31,6 +32,7 @@ object AISpawningManager : IonServerComponent(true) {
 			Tasks.syncRepeat(0L, 0L, AISpawningManager::tickSpawners)
 		}
 		Tasks.syncRepeat(60L, 60L, AISpawningManager::despawnOldAIShips)
+		Tasks.syncRepeat(60L, 60L, AISpawningManager::despawnAIInDefenderRange)
 	}
 
 	override fun onDisable() {
@@ -57,6 +59,17 @@ object AISpawningManager : IonServerComponent(true) {
 		for (starship in ActiveStarships.all()) {
 			if (meetsDespawnCriteria(starship)) {
 				despawn(starship)
+			}
+		}
+	}
+	// handles despawn of wandering ships
+	private fun despawnAIInDefenderRange() {
+		for (starship in ActiveStarships.all()) {
+			if (starship.controller !is AIController) continue
+			if (starship.isExploding) continue
+
+			if (AIDefender.isNearActiveDefender(starship.world, starship.centerOfMass.x.toDouble(), starship.centerOfMass.z.toDouble())) {
+				StarshipDestruction.vanish(starship = starship, ephemeral = true, urgent = false)
 			}
 		}
 	}

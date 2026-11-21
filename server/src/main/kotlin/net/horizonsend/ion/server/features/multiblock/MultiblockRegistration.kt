@@ -45,6 +45,7 @@ import net.horizonsend.ion.server.features.multiblock.type.industry.FabricatorMu
 import net.horizonsend.ion.server.features.multiblock.type.industry.FermenterMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.industry.GasFurnaceMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.industry.PlatePressMultiblock
+import net.horizonsend.ion.server.features.multiblock.type.misc.AIDefender
 import net.horizonsend.ion.server.features.multiblock.type.misc.AirlockMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.misc.CryoPodMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.misc.DecomposerMultiblock
@@ -244,6 +245,7 @@ object MultiblockRegistration : IonServerComponent() {
 	override fun onEnable() {
 		initMultiblocks()
 		sortMultiblocks()
+		AIDefender.startTracking()
 
 		log.info("Loaded ${multiblocks.size} multiblocks")
 	}
@@ -368,6 +370,7 @@ object MultiblockRegistration : IonServerComponent() {
 		registerMultiblock(AreaShield70)
 
 		registerMultiblock(MobDefender)
+		registerMultiblock(AIDefender)
 
 		// Starship weapons
 		registerMultiblock(LaserCannonStarshipWeaponMultiblock)

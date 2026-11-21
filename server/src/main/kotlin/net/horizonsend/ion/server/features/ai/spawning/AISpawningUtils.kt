@@ -7,6 +7,7 @@ import net.horizonsend.ion.server.features.ai.configuration.AITemplate
 import net.horizonsend.ion.server.features.ai.module.misc.GlowModule
 import net.horizonsend.ion.server.features.ai.reward.AICapRewardProvider
 import net.horizonsend.ion.server.features.ai.starship.StarshipTemplate
+import net.horizonsend.ion.server.features.multiblock.type.misc.AIDefender
 import net.horizonsend.ion.server.features.space.Space
 import net.horizonsend.ion.server.features.starship.DeactivatedPlayerStarships
 import net.horizonsend.ion.server.features.starship.PilotedStarships
@@ -215,7 +216,7 @@ fun formatLocationSupplier(world: World, minDistance: Double, maxDistance: Doubl
 
 	val planets = Space.getAllPlanets().filter { it.spaceWorld == world }.map { it.location.toVector() }
 
-	// max 10 iterations
+	// max 16 iterations
 	while (iterations <= 15) {
 		iterations++
 
@@ -228,6 +229,11 @@ fun formatLocationSupplier(world: World, minDistance: Double, maxDistance: Doubl
 
 		if (planets.any { it.distanceSquared(loc.toVector()) <= 250000 }) {
 			debugAudience.debug("Too close to planet!")
+			continue
+		}
+
+		if (AIDefender.isNearActiveDefender(world, loc.x, loc.z)) {
+			debugAudience.debug("Inside AI Defender range!")
 			continue
 		}
 
@@ -253,7 +259,7 @@ fun formatLocationSupplier(centerSupplier: Supplier<Location>, minDistance: Doub
 
 	val planets = Space.getAllPlanets().filter { it.spaceWorld == world }.map { it.location.toVector() }
 
-	// max 10 iterations
+	// max 16 iterations
 	while (iterations <= 15) {
 		iterations++
 
@@ -266,6 +272,11 @@ fun formatLocationSupplier(centerSupplier: Supplier<Location>, minDistance: Doub
 
 		if (planets.any { it.distanceSquared(loc.toVector()) <= 250000 }) {
 			debugAudience.debug("Too close to planet!")
+			continue
+		}
+
+		if (AIDefender.isNearActiveDefender(world, loc.x, loc.z)) {
+			debugAudience.debug("Inside AI Defender range!")
 			continue
 		}
 

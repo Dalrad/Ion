@@ -10,6 +10,7 @@ import net.horizonsend.ion.server.features.multiblock.MultiblockAccess
 import net.horizonsend.ion.server.features.multiblock.MultiblockRegistration
 import net.horizonsend.ion.server.features.multiblock.type.defense.passive.areashield.AreaShield
 import net.horizonsend.ion.server.features.multiblock.type.drills.DrillMultiblock
+import net.horizonsend.ion.server.features.multiblock.type.misc.AIDefender
 import net.horizonsend.ion.server.features.multiblock.type.misc.AbstractMagazineMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.misc.CryoPodMultiblock
 import net.horizonsend.ion.server.features.multiblock.type.misc.FuelTankMultiblock
@@ -177,6 +178,10 @@ object SubsystemDetector {
 		val multiblock = MultiblockAccess.getFast(sign)
 		if (multiblock is AreaShield) {
 			throw ActiveStarshipFactory.StarshipActivationException("Starships cannot fly with area shields!")
+		}
+		
+		if (multiblock is AIDefender) {
+			throw ActiveStarshipFactory.StarshipActivationException("Starships cannot fly with AI defenders!")
 		}
 
 		if (sign.front().line(0).plainText().lowercase(Locale.getDefault()).contains("map")) {
