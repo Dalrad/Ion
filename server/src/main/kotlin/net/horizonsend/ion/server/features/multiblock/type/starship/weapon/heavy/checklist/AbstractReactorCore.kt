@@ -4,12 +4,21 @@ import net.horizonsend.ion.common.utils.text.plainText
 import net.horizonsend.ion.server.features.multiblock.Multiblock
 import net.horizonsend.ion.server.features.multiblock.shape.MultiblockShape
 import net.horizonsend.ion.server.features.multiblock.type.DisplayNameMultilblock
+import net.horizonsend.ion.server.miscellaneous.utils.coordinates.Vec3i
+import net.horizonsend.ion.server.miscellaneous.utils.getFacing
 import org.bukkit.block.Sign
 import org.bukkit.block.sign.Side
 
 abstract class AbstractReactorCore(val core: MultiblockShape.RequirementBuilder.() -> Unit) : Multiblock(), DisplayNameMultilblock {
 	override fun matchesUndetectedSign(sign: Sign): Boolean {
 		return super.matchesUndetectedSign(sign) || sign.getSide(Side.FRONT).line(0).plainText().equals("[reactor]", ignoreCase = true)
+	}
+
+	fun isStructureIntactWithin(sign: Sign, isLocationWithin: (Vec3i) -> Boolean): Boolean {
+		val inward = sign.getFacing().oppositeFace
+		val origin = getOriginLocation(sign)
+
+		return shape.getLocations(inward).all { isLocationWithin(origin + it) } && signMatchesStructure(sign)
 	}
 
 	override fun MultiblockShape.buildStructure() {

@@ -38,6 +38,7 @@ import net.horizonsend.ion.server.features.starship.event.StarshipReleaseEvent
 import net.horizonsend.ion.server.features.starship.event.StarshipUnpilotEvent
 import net.horizonsend.ion.server.features.starship.hyperspace.Hyperspace
 import net.horizonsend.ion.server.features.starship.modules.StandardRewardsProvider
+import net.horizonsend.ion.server.features.starship.subsystem.checklist.SupercapitalReactorSubsystem
 import net.horizonsend.ion.server.features.starship.subsystem.misc.LandingGearSubsystem
 import net.horizonsend.ion.server.features.starship.subsystem.misc.MiningLaserSubsystem
 import net.horizonsend.ion.server.features.starship.subsystem.reactor.ReactorSubsystem
@@ -56,6 +57,7 @@ import net.horizonsend.ion.server.miscellaneous.utils.coordinates.blockKeyX
 import net.horizonsend.ion.server.miscellaneous.utils.coordinates.blockKeyY
 import net.horizonsend.ion.server.miscellaneous.utils.coordinates.blockKeyZ
 import net.horizonsend.ion.server.miscellaneous.utils.createData
+import net.horizonsend.ion.server.miscellaneous.utils.getBlockIfLoaded
 import net.horizonsend.ion.server.miscellaneous.utils.isPilot
 import net.horizonsend.ion.server.miscellaneous.utils.listen
 import net.kyori.adventure.audience.Audience
@@ -64,6 +66,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.World
+import org.bukkit.block.Sign
 import org.bukkit.block.data.BlockData
 import org.bukkit.boss.BarColor
 import org.bukkit.boss.BarStyle
@@ -442,6 +445,12 @@ object PilotedStarships : IonServerComponent() {
 					}
 				}
 
+				if (hasInvalidReactor(activePlayerStarship)) {
+					player.userError("A reactor is damaged or not fully contained in the detected ship.")
+					DeactivatedPlayerStarships.deactivateAsync(activePlayerStarship)
+					return@activateAsync
+				}
+
 				// Check forbidden subsystems
 				for (forbiddenSubsystem in activePlayerStarship.balancing.forbiddenMultiblocks) {
 					if (!forbiddenSubsystem.checkRequirements(activePlayerStarship.subsystems)) {
@@ -519,6 +528,20 @@ object PilotedStarships : IonServerComponent() {
 		return true
 	}
 
+	private fun hasInvalidReactor(starship: ActiveControlledStarship): Boolean =
+		starship.subsystems
+			.filterIsInstance<SupercapitalReactorSubsystem<*>>()
+			.any { reactor ->
+				!starship.contains(reactor.pos.x, reactor.pos.y, reactor.pos.z) ||
+					(getBlockIfLoaded(starship.world, reactor.pos.x, reactor.pos.y, reactor.pos.z)?.state as? Sign)?.let { sign ->
+						// Callback checks that each reactor block is within the detected ship.
+						// (function also checks if the derived structure is intact)
+						reactor.multiblock.isStructureIntactWithin(sign) { location ->
+							starship.contains(location.x, location.y, location.z)
+						}
+					} != true
+				}
+
 	fun tryRelease(starship: ActiveControlledStarship, bypassCombatTag: Boolean = false): Boolean {
 		val controller = starship.controller
 
@@ -535,8 +558,11 @@ object PilotedStarships : IonServerComponent() {
 
 		if (oldController is PlayerController) {
 			val player = oldController.player
-			val touching = player.getSettingOrThrow(PlayerSettings::releaseTouchVerification) &&
-				starship.isTouchingExternalBlock()
+			val verifyRelease = player.getSettingOrThrow(PlayerSettings::releaseTouchVerification)
+			val touching = verifyRelease && starship.isTouchingExternalBlock()
+			val reactorNeedsRepair =
+				!starship.world.ion.hasFlag(WorldFlag.NO_SUPERCAPITAL_REQUIREMENTS) &&
+				hasInvalidReactor(starship)
 
 			// A touching ship in a protected safezone may not release or unpilot, including while combat tagged.
 			if (touching && ProtectionListener.isProtectedCity(player.location)) {
@@ -554,9 +580,15 @@ object PilotedStarships : IonServerComponent() {
 				return false
 			}
 
-			if (touching && !hasConfirmedRelease(player, starship)) {
+			if ((touching || reactorNeedsRepair) && !hasConfirmedRelease(player, starship)) {
+				val reason = if (reactorNeedsRepair) {
+					"The ship doesn't have required intact reactors detected. Piloting"
+				} else {
+					"The ship is touching something nearby. Redetection"
+				}
+
 				player.userError(
-					"The ship is touching something nearby so redetection here may not work. Attempt to release again within 5 seconds to confirm your release"
+					"$reason here may not work. Attempt to release again within 5 seconds to confirm your release"
 				)
 				return false
 			}
